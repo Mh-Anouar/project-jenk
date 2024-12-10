@@ -61,7 +61,6 @@ jobs:
 
   push:
     name: PUSH IMAGE ON DOCKERHUB
-    needs: run-and-test
     runs-on: ubuntu-latest
     steps:    
       - name: Download workspace from job build
