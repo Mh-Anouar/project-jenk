@@ -1,15 +1,78 @@
-run-and-test:
-  name: RUN AND TEST CONTAINER
-  needs: build
-  runs-on: ubuntu-latest
-  steps:  
-    - name: Download workspace from job build
-      uses: actions/cache@v3
-      with:
-        key: image
-        path: ${{ env.IMAGE_NAME }}
-    - name: Run container based on built image
-      run: |
-        docker load < ${DOCKERHUB_ID}/$IMAGE_NAME:$IMAGE_TAG
-        docker run --name $IMAGE_NAME -d -p ${APP_EXPOSED_PORT}:${APP_CONTAINER_PORT} -e PORT=$APP_CONTAINER_PORT ${DOCKERHUB_ID}/$IMAGE_NAME:$IMAGE_TAG
-        sleep 5
+name: static-website
+on:
+  pull_request:
+    branches:
+      - main
+      - test-cache
+  push:
+    branches:
+      - main
+      - test-cache
+#  schedule:
+#    - cron: "0 2 * * *"
+env:
+  ID_DOCKER: "choco1992"
+  DOCKERHUB_ID: "docker19191919"  # Update this to your Docker Hub ID
+  IMAGE_NAME: "staticwebsite"
+  IMAGE_TAG: "latest"
+  APP_CONTAINER_PORT: "80"
+  APP_EXPOSED_PORT: "80"
+
+jobs:
+  build:
+    name: BUILD DOCKER IMAGE
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out the codebase.
+        uses: actions/checkout@v2
+
+      - name: Build Image
+        run: | 
+          docker build -t ${DOCKERHUB_ID}/$IMAGE_NAME:$IMAGE_TAG .
+          docker save ${DOCKERHUB_ID}/$IMAGE_NAME:$IMAGE_TAG > $IMAGE_NAME
+          echo "IMAGE_NAME=staticwebsite" >> $GITHUB_ENV
+      - name: Cache artefact
+        uses: actions/cache@v3
+        with:
+          key: image
+          path: ${{ env.IMAGE_NAME }}
+          
+  run-and-test:
+    name: RUN AND TEST CONTAINER
+    needs: build
+    runs-on: ubuntu-latest
+    steps:  
+      - name: Download workspace from job build
+        uses: actions/cache@v3
+        with:
+          key: image
+          path: ${{ env.IMAGE_NAME }}
+      - name: Run container based on built image
+        run: |
+          docker load < ${DOCKERHUB_ID}/$IMAGE_NAME:$IMAGE_TAG
+          docker run --name $IMAGE_NAME -d -p ${APP_EXPOSED_PORT}:${APP_CONTAINER_PORT} -e PORT=$APP_CONTAINER_PORT ${DOCKERHUB_ID}/$IMAGE_NAME:$IMAGE_TAG
+          sleep 5
+
+      - name: Test image.
+        run: curl http://172.17.0.1:${APP_EXPOSED_PORT} | grep -i "Dimension"
+
+      - name: Clean Container
+        run: |
+          docker stop $IMAGE_NAME
+          docker rm $IMAGE_NAME
+
+  push:
+    name: PUSH IMAGE ON DOCKERHUB
+    needs: run-and-test
+    runs-on: ubuntu-latest
+    steps:    
+      - name: Download workspace from job build
+        uses: actions/cache@v3
+        with:
+          key: image
+          path: ${{ env.IMAGE_NAME }}
+      - name: Login and Push Image on Docker Hub
+        run: |
+          docker load < ${DOCKERHUB_ID}/$IMAGE_NAME:$IMAGE_TAG
+          echo ${{ secrets.DOCKERHUB_PASSWORD }} | docker login -u $DOCKERHUB_ID --password-stdin
+          docker push ${DOCKERHUB_ID}/$IMAGE_NAME:$IMAGE_TAG
