@@ -8,7 +8,8 @@ name: static-website
 #  schedule:
 #    - cron: "0 2 * * *"
 env:
-  ID_DOCKER: "docker19191919"
+  ID_DOCKER: "choco1992"
+  DOCKERHUB_ID:"docker19191919"
   IMAGE_NAME: "staticwebsite"
   IMAGE_TAG: "latest"
   APP_CONTAINER_PORT: "80"
