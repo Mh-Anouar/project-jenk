@@ -74,36 +74,5 @@ jobs:
           docker load < $IMAGE_NAME
           echo ${{ secrets.DOCKERHUB_PASSWORD }} | docker login -u $ID_DOCKER --password-stdin
           docker push ${ID_DOCKER}/$IMAGE_NAME:$IMAGE_TAG          
-
-
+          
         
-  deploy:
-    name: DEPLOY APPLICATION
-    needs: push
-    runs-on: ubuntu-latest
-    steps:  
-      - name: Check out the codebase.
-        uses: actions/checkout@v2              
-      - name: Install and configure Heroku CLI
-        run: | 
-          sudo apt install nodejs
-          echo "STAGING=${ID_DOCKER}-staging" >> $GITHUB_ENV
-          echo "PRODUCTION=${ID_DOCKER}-production" >> $GITHUB_ENV
-      
-      - name: Deploy Staging
-        env:
-          HEROKU_API_KEY: ${{ secrets.HEROKU_API_KEY }}
-        run: | 
-          heroku container:login
-          heroku create ${STAGING}  || echo "project already exist"
-          heroku container:push -a ${STAGING} web
-          heroku container:release -a ${STAGING} web    
-      
-      - name: Deploy PRODUCTION
-        env:
-          HEROKU_API_KEY: ${{ secrets.HEROKU_API_KEY }}
-        run: | 
-          heroku container:login
-          heroku create ${PRODUCTION}  || echo "project already exist"
-          heroku container:push -a ${PRODUCTION} web
-          heroku container:release -a ${PRODUCTION} web    
