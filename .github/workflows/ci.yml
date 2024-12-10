@@ -35,7 +35,30 @@ jobs:
           path: ${{ env.IMAGE_NAME }}
           
 
-  
+  run-and-test:
+    name: RUN AND TEST CONTAINER
+    needs: build
+    runs-on: ubuntu-latest
+    steps:  
+      - name: Download workspace from job build
+        uses: actions/cache@v3
+        with:
+          key: image
+          path: ${{ env.IMAGE_NAME }}
+      - name: Run container based on builded image
+        run: |
+          docker load < $IMAGE_NAME
+          docker run --name $IMAGE_NAME -d -p ${APP_EXPOSED_PORT}:${APP_CONTAINER_PORT} -e PORT=$APP_CONTAINER_PORT ${ID_DOCKER}/$IMAGE_NAME:$IMAGE_TAG
+          sleep 5
+
+      - name: Test image.
+        run: curl http://172.17.0.1:${APP_EXPOSED_PORT} | grep -i "Dimension"
+
+      - name: Clean Container
+        run: |
+          docker stop $IMAGE_NAME
+          docker rm $IMAGE_NAME
+
   push:
     name: PUSH IMAGE ON DOCKERHUB
     needs: run-and-test
