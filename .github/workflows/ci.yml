@@ -24,9 +24,12 @@ jobs:
 
       - name: Build Image
         run: | 
+          # Build the Docker image and tag it correctly
           docker build -t ${DOCKERHUB_ID}/$IMAGE_NAME:$IMAGE_TAG .
+          # List all images to verify the image is built and tagged
+          docker images
           echo "IMAGE_NAME=staticwebsite" >> $GITHUB_ENV
-          
+
       - name: Cache artifact
         uses: actions/cache@v3
         with:
@@ -38,7 +41,14 @@ jobs:
     needs: build
     runs-on: ubuntu-latest
     steps:
+      - name: Verify the image exists
+        run: |
+          # List all images before pushing to ensure the image is present
+          docker images
+
       - name: Login and Push Image on Docker Hub
         run: |
+          # Login to Docker Hub using the secret
           echo ${{ secrets.DOCKERHUB_PASSWORD }} | docker login -u $DOCKERHUB_ID --password-stdin
+          # Push the image to Docker Hub
           docker push ${DOCKERHUB_ID}/$IMAGE_NAME:$IMAGE_TAG
