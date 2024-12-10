@@ -1,4 +1,3 @@
----
 name: static-website
 'on':
   pull_request:
@@ -33,23 +32,7 @@ jobs:
         with:
           key: image
           path: ${{ env.IMAGE_NAME }}
-
-  push:
-    name: PUSH IMAGE ON DOCKERHUB
-    runs-on: ubuntu-latest
-    steps:    
-      - name: Download workspace from job build
-        uses: actions/cache@v3
-        with:
-          key: image
-          path: ${{ env.IMAGE_NAME }}
-      - name: Login and Push Image on docker hub
-        run: |
-          docker load < $IMAGE_NAME
-          echo ${{ secrets.DOCKERHUB_PASSWORD }} | docker login -u $ID_DOCKER --password-stdin
-          docker push ${ID_DOCKER}/$IMAGE_NAME:$IMAGE_TAG          
-     
-
+          
 
   run-and-test:
     name: RUN AND TEST CONTAINER
@@ -75,5 +58,18 @@ jobs:
           docker stop $IMAGE_NAME
           docker rm $IMAGE_NAME
 
-       
-        
+  push:
+    name: PUSH IMAGE ON DOCKERHUB
+    needs: run-and-test
+    runs-on: ubuntu-latest
+    steps:    
+      - name: Download workspace from job build
+        uses: actions/cache@v3
+        with:
+          key: image
+          path: ${{ env.IMAGE_NAME }}
+      - name: Login and Push Image on docker hub
+        run: |
+          docker load < $IMAGE_NAME
+          echo ${{ secrets.DOCKERHUB_PASSWORD }} | docker login -u $ID_DOCKER --password-stdin
+          docker push ${ID_DOCKER}/$IMAGE_NAME:$IMAGE_TAG          
