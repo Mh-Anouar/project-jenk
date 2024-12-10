@@ -23,7 +23,7 @@ jobs:
         uses: actions/checkout@v2
 
       - name: Build Image
-        run: | 
+        run: |
           # Build the Docker image and tag it correctly
           docker build -t ${DOCKERHUB_ID}/$IMAGE_NAME:$IMAGE_TAG .
           # List all images to verify the image is built and tagged
@@ -35,7 +35,7 @@ jobs:
         with:
           key: image
           path: ${{ env.IMAGE_NAME }}
-          
+
   push:
     name: PUSH IMAGE ON DOCKERHUB
     needs: build
