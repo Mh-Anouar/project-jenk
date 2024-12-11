@@ -22,12 +22,24 @@ pipeline {
               }
            }
        }
-       stage('Run container based on builded image') {
+
+       // Test Docker connection
+       stage('Test Docker Connection') {
+           agent any
+           steps {
+               script {
+                   // Test the Docker connection to verify if Jenkins can access the Docker daemon
+                   sh 'docker info'
+               }
+           }
+       }
+
+       stage('Run container based on built image') {
           agent any
           steps {
             script {
               sh '''
-                  echo "Cleaning existing container if exist"
+                  echo "Cleaning existing container if it exists"
                   docker ps -a | grep -i $IMAGE_NAME && docker rm -f $IMAGE_NAME
                   docker run --name $IMAGE_NAME -d -p $APP_EXPOSED_PORT:$APP_CONTAINER_PORT -e PORT=$APP_CONTAINER_PORT ${DOCKERHUB_ID}/$IMAGE_NAME:$IMAGE_TAG
                   sleep 5
@@ -35,6 +47,7 @@ pipeline {
              }
           }
        }
+
        stage('Test image') {
            agent any
            steps {
@@ -45,6 +58,7 @@ pipeline {
               }
            }
        }
+
        stage('Clean container') {
           agent any
           steps {
@@ -57,7 +71,7 @@ pipeline {
           }
       }
 
-      stage ('Login and Push Image on docker hub') {
+      stage ('Login and Push Image on Docker Hub') {
           agent any
           steps {
              script {
@@ -88,6 +102,7 @@ pipeline {
            }
         }
      }
+
      stage('Push image in production and deploy it') {
        when {
            expression { GIT_BRANCH == 'origin/main' }
