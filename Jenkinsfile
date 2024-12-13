@@ -1,5 +1,4 @@
-/* import shared library. */
-@Library('chocoapp-slack-share-library')_
+@Library('chocoapp-slack-share-library') _
 
 pipeline {
     environment {
@@ -14,105 +13,118 @@ pipeline {
     }
     agent none
     stages {
-       stage('Build image') {
-           agent any
-           steps {
-              script {
-                sh 'docker build -t ${DOCKERHUB_ID}/$IMAGE_NAME:$IMAGE_TAG .'
-              }
-           }
-       }
-       stage('Run container based on builded image') {
-          agent any
-          steps {
-            script {
-              sh '''
-                  echo "Cleaning existing container if exist"
-                  docker ps -a | grep -i $IMAGE_NAME && docker rm -f $IMAGE_NAME
-                  docker run --name $IMAGE_NAME -d -p $APP_EXPOSED_PORT:$APP_CONTAINER_PORT -e PORT=$APP_CONTAINER_PORT ${DOCKERHUB_ID}/$IMAGE_NAME:$IMAGE_TAG
-                  sleep 5
-              '''
-             }
-          }
-       }
-       stage('Test image') {
-           agent any
-           steps {
-              script {
-                sh '''
-                   curl 172.28.128.123 | grep -i "Dimension"
-                '''
-              }
-           }
-       }
-       stage('Clean container') {
-          agent any
-          steps {
-             script {
-               sh '''
-                   docker stop $IMAGE_NAME
-                   docker rm $IMAGE_NAME
-               '''
-             }
-          }
-      }
+        stage('Checkout') {
+            agent any
+            steps {
+                // Checkout the source code from the Git repository
+                checkout scm
+            }
+        }
 
-      stage ('Login and Push Image on docker hub') {
-          agent any
-          steps {
-             script {
-               sh '''
-                   echo $DOCKERHUB_PASSWORD | docker login -u $DOCKERHUB_ID --password-stdin
-                   docker push ${DOCKERHUB_ID}/$IMAGE_NAME:$IMAGE_TAG
-               '''
-             }
-          }
-      }
+        stage('Build image') {
+            agent any
+            steps {
+                script {
+                    sh 'docker build -t ${DOCKERHUB_ID}/$IMAGE_NAME:$IMAGE_TAG .'
+                }
+            }
+        }
 
-      stage('Push image in staging and deploy it') {
-        when {
-            expression { GIT_BRANCH == 'origin/main' }
+        stage('Run container based on built image') {
+            agent any
+            steps {
+                script {
+                    sh '''
+                        echo "Cleaning existing container if exists"
+                        docker ps -a | grep -i $IMAGE_NAME && docker rm -f $IMAGE_NAME
+                        docker run --name $IMAGE_NAME -d -p $APP_EXPOSED_PORT:$APP_CONTAINER_PORT -e PORT=$APP_CONTAINER_PORT ${DOCKERHUB_ID}/$IMAGE_NAME:$IMAGE_TAG
+                        sleep 5
+                    '''
+                }
+            }
         }
-	agent any 
-        environment {
-            HEROKU_API_KEY = credentials('heroku_api_key')
+
+        stage('Test image') {
+            agent any
+            steps {
+                script {
+                    sh '''
+                        curl 172.28.128.123 | grep -i "Dimension"
+                    '''
+                }
+            }
         }
-        steps {
-           script {
-             sh '''
-                heroku container:login
-                heroku create $STAGING || echo "projets already exist"
-                heroku container:push -a $STAGING web
-                heroku container:release -a $STAGING web
-             '''
-           }
+
+        stage('Clean container') {
+            agent any
+            steps {
+                script {
+                    sh '''
+                        docker stop $IMAGE_NAME
+                        docker rm $IMAGE_NAME
+                    '''
+                }
+            }
         }
-     }
-     stage('Push image in production and deploy it') {
-       when {
-           expression { GIT_BRANCH == 'origin/main' }
-       }
-	agent any
-       environment {
-           HEROKU_API_KEY = credentials('heroku_api_key')
-       }
-       steps {
-          script {
-            sh '''
-               heroku container:login
-               heroku create $PRODUCTION || echo "projets already exist"
-               heroku container:push -a $PRODUCTION web
-               heroku container:release -a $PRODUCTION web
-            '''
-          }
-       }
-     }
-  }
-  post {
-     always {
-       script {
-         slackNotifier currentBuild.result
-     }
+
+        stage('Login and Push Image to Docker Hub') {
+            agent any
+            steps {
+                script {
+                    sh '''
+                        echo $DOCKERHUB_PASSWORD | docker login -u $DOCKERHUB_ID --password-stdin
+                        docker push ${DOCKERHUB_ID}/$IMAGE_NAME:$IMAGE_TAG
+                    '''
+                }
+            }
+        }
+
+        stage('Push image to staging and deploy it') {
+            when {
+                branch 'main'
+            }
+            agent any
+            environment {
+                HEROKU_API_KEY = credentials('heroku_api_key')
+            }
+            steps {
+                script {
+                    sh '''
+                        heroku container:login
+                        heroku create $STAGING || echo "Project already exists"
+                        heroku container:push -a $STAGING web
+                        heroku container:release -a $STAGING web
+                    '''
+                }
+            }
+        }
+
+        stage('Push image to production and deploy it') {
+            when {
+                branch 'main'
+            }
+            agent any
+            environment {
+                HEROKU_API_KEY = credentials('heroku_api_key')
+            }
+            steps {
+                script {
+                    sh '''
+                        heroku container:login
+                        heroku create $PRODUCTION || echo "Project already exists"
+                        heroku container:push -a $PRODUCTION web
+                        heroku container:release -a $PRODUCTION web
+                    '''
+                }
+            }
+        }
     }
-  }
+
+    post {
+        always {
+            script {
+                slackNotifier currentBuild.result
+            }
+        }
+    }
 }
